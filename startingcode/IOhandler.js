@@ -3,6 +3,7 @@ const fsPromises = fs.promises;
 const PNG = require('pngjs').PNG;
 const yauzl = require('yauzl');
 const path = require('path');
+const IOhandler = require('./IOhandler');
 
 /**
  * Description: decompress file from given pathIn, write to given pathOut
@@ -18,10 +19,10 @@ const unzip = async (pathIn, pathOut) => {
     yauzl.open(pathIn, { lazyEntries: true }, (err, zipFile) => {
       if (err) throw err;
 
+      
       zipFile.readEntry();
       zipFile.on('entry', async (entry) => {
         if (/\/$/.test(entry.fileName)) {
-          // Directory entry, skip it
           zipFile.readEntry();
           return;
         }
@@ -103,3 +104,29 @@ const grayScale = async (pathIn, pathOut) => {
 };
 
 module.exports = { unzip, readDir, grayScale };
+
+const path = require('path');
+const fsPromises = require('fs').promises;
+const IOhandler = require('./IOhandler');
+
+const zipFilePath = 'startingcode/myfile.zip'; 
+const pathUnzipped = path.join(__dirname, 'unzipped');
+const pathProcessed = path.join(__dirname, 'processed');
+
+fsPromises.mkdir(pathProcessed, { recursive: true })
+  .then(() => IOhandler.unzip(zipFilePath, pathUnzipped))
+  .then(() => IOhandler.readDir(pathUnzipped))
+  .then(pngFiles => {
+    const promises = pngFiles.map(file => {
+      const inputFile = path.join(pathUnzipped, file);
+      const outputFile = path.join(pathProcessed, file);
+      return IOhandler.grayScale(inputFile, outputFile);
+    });
+    return Promise.all(promises);
+  })
+  .then(() => {
+    console.log('Processing complete.');
+  })
+  .catch(error => {
+    console.error('Error during processing:', error);
+  });
